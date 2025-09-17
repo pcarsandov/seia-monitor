@@ -1,0 +1,41 @@
+name: SEIA daily feed
+
+on:
+  schedule:
+    # GitHub usa UTC. 11:30 UTC ≈ 08:30 en Chile continental (America/Santiago) cuando está -03.
+    # Si ves desfase por horario de verano, ajusta este cron.
+    - cron: '30 11 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run scraper
+        run: |
+          python seia_feed.py
+
+      - name: Publish to gh-pages branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+          git checkout -B gh-pages
+          git add out/feed.xml out/data.json
+          git commit -m "Update feed $(date -u +'%Y-%m-%d %H:%M:%S')" || echo "Nada que commitear"
+          git push -f origin gh-pages
