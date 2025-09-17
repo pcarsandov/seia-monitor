@@ -3,7 +3,6 @@ name: SEIA daily feed
 on:
   schedule:
     # GitHub usa UTC. 11:30 UTC ≈ 08:30 en Chile continental (UTC-3).
-    # Si ves desfase por cambio de hora, ajusta este cron.
     - cron: '30 11 * * *'
   workflow_dispatch:
 
@@ -13,16 +12,16 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -31,20 +30,21 @@ jobs:
         run: |
           python seia_feed.py
 
-      - name: Publish to gh-pages branch
+      - name: Publish to gh-pages
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin
           git checkout -B gh-pages
 
-          # Copiamos los artefactos al raíz de la rama gh-pages
+          # Copiamos artefactos al raíz de gh-pages
           cp -f out/feed.xml feed.xml
           cp -f out/data.json data.json
 
-          # Si no existe un index.html, creamos uno simple que enlace a los feeds
+          # Si no existe un index.html, creamos uno simple
           if [ ! -f index.html ]; then
-            cat > index.html << 'HTML'
+            cat > index.html <<'EOF'
 <!doctype html>
 <html lang="es">
 <head>
@@ -64,12 +64,11 @@ jobs:
     <li><a href="./feed.xml">RSS</a></li>
     <li><a href="./data.json">JSON</a></li>
   </ul>
-  <p>Repositorio: <a href="https://github.com/${GITHUB_REPOSITORY}">${GITHUB_REPOSITORY}</a></p>
 </body>
 </html>
-HTML
+EOF
           fi
 
           git add feed.xml data.json index.html
-          git commit -m "Update feed $(date -u +'%Y-%m-%d %H:%M:%S')" || echo "Nada que commitear"
+          git commit -m "Update feed $(date -u +'%Y-%m-%d %H:%M:%S')" || echo "Nothing to commit"
           git push -f origin gh-pages
