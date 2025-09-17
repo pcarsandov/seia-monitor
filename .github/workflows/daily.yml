@@ -30,12 +30,23 @@ jobs:
         run: |
           python seia_feed.py
 
-      - name: Publish to gh-pages branch
+      - name: Publish to gh-pages
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -e
           git fetch origin
           git checkout -B gh-pages
-          git add out/feed.xml out/data.json
-          git commit -m "Update feed $(date -u +'%Y-%m-%d %H:%M:%S')" || echo "Nada que commitear"
+
+          echo "Contenido de out/:"
+          ls -la out || true
+
+          # Copiar todo lo que haya en out/ al root de gh-pages
+          cp -r out/* . || true
+
+          echo "Contenido en raíz de gh-pages:"
+          ls -la
+
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Update feed $(date -u +'%Y-%m-%d %H:%M:%S')" || echo "Nothing to commit"
+
           git push -f origin gh-pages
