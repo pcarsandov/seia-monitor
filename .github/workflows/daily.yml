@@ -1,32 +1,26 @@
 name: SEIA daily feed
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '30 11 * * *'   # ~08:30 Chile (UTC-3)
-  workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -35,29 +29,27 @@ jobs:
         run: |
           python seia_feed.py || true
 
-      # --- Garantiza que siempre haya algo que publicar ---
-      - name: Ensure out/ and minimal feed exist
+      # Garantiza que SIEMPRE haya algo que publicar (evita 404 de Pages)
+      - name: Ensure out/ exists and minimal files
         run: |
-          set -e
           mkdir -p out
           if [ ! -f out/feed.xml ]; then
-            cat > out/feed.xml <<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-  <channel>
-    <title>SEIA - Ingresos recientes (no oficial)</title>
-    <link>https://seia.sea.gob.cl/busqueda/buscarProyectoResumen.php</link>
-    <description>Feed mínimo generado automáticamente</description>
-    <lastBuildDate>Wed, 01 Jan 2020 00:00:00 +0000</lastBuildDate>
-  </channel>
-</rss>
-XML
+            printf '%s\n' \
+'<?xml version="1.0" encoding="UTF-8"?>' \
+'<rss version="2.0">' \
+'<channel>' \
+'<title>SEIA - Ingresos recientes (no oficial)</title>' \
+'<link>https://seia.sea.gob.cl/busqueda/buscarProyectoResumen.php</link>' \
+'<description>Feed mínimo</description>' \
+'<lastBuildDate>Wed, 01 Jan 2020 00:00:00 +0000</lastBuildDate>' \
+'</channel>' \
+'</rss>' > out/feed.xml
           fi
           if [ ! -f out/data.json ]; then
-            echo '{"generated":"fallback","count":0,"items":[]}' > out/data.json
+            printf '%s\n' '{"generated":"fallback","count":0,"items":[]}' > out/data.json
           fi
 
-      - name: Upload Pages artifact (out/)
+      - name: Upload artifact for Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: out
@@ -69,6 +61,5 @@ XML
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4
