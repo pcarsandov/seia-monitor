@@ -2,9 +2,7 @@ name: SEIA daily feed
 
 on:
   schedule:
-    # GitHub usa UTC. 11:30 UTC ≈ 08:30 en Chile continental (America/Santiago) cuando está -03.
-    # Si ves desfase por horario de verano, ajusta este cron.
-    - cron: '30 11 * * *'
+    - cron: '30 11 * * *'   # ~08:30 Chile (UTC-3)
   workflow_dispatch:
 
 permissions:
@@ -13,15 +11,17 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -30,19 +30,36 @@ jobs:
         run: |
           python seia_feed.py
 
+      # ====== CLAVE: guardar 'out/' en carpeta temporal ANTES de cambiar de rama ======
+      - name: Stage site to temp dir
+        run: |
+          set -e
+          echo "Workspace root:"
+          ls -la
+          echo
+          echo "./out contents:"
+          ls -la out || true
+          mkdir -p /tmp/site
+          cp -r out/* /tmp/site/ || true
+          echo "/tmp/site contents:"
+          ls -la /tmp/site || true
+
       - name: Publish to gh-pages
         run: |
           set -e
           git fetch origin
           git checkout -B gh-pages
 
-          echo "Contenido de out/:"
-          ls -la out || true
+          echo "On gh-pages BEFORE copy:"
+          ls -la
 
-          # Copiar todo lo que haya en out/ al root de gh-pages
-          cp -r out/* . || true
+          # Copiar desde el staging temporal a la raíz de gh-pages
+          cp -r /tmp/site/* . || true
 
-          echo "Contenido en raíz de gh-pages:"
+          # (Opcional) eliminar carpeta 'out' si quedó comiteada de intentos anteriores
+          rm -rf out || true
+
+          echo "On gh-pages AFTER copy:"
           ls -la
 
           git add -A
