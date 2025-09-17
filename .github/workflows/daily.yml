@@ -2,8 +2,8 @@ name: SEIA daily feed
 
 on:
   schedule:
-    # GitHub usa UTC. 11:30 UTC ≈ 08:30 en Chile continental (America/Santiago) cuando está -03.
-    # Si ves desfase por horario de verano, ajusta este cron.
+    # GitHub usa UTC. 11:30 UTC ≈ 08:30 en Chile continental (UTC-3).
+    # Si ves desfase por cambio de hora, ajusta este cron.
     - cron: '30 11 * * *'
   workflow_dispatch:
 
@@ -13,6 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +37,39 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin
           git checkout -B gh-pages
-          git add out/feed.xml out/data.json
+
+          # Copiamos los artefactos al raíz de la rama gh-pages
+          cp -f out/feed.xml feed.xml
+          cp -f out/data.json data.json
+
+          # Si no existe un index.html, creamos uno simple que enlace a los feeds
+          if [ ! -f index.html ]; then
+            cat > index.html << 'HTML'
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SEIA Monitor</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;max-width:760px;margin:40px auto;padding:0 16px;line-height:1.5}
+    a{word-break:break-all}
+    code{background:#f4f4f4;padding:2px 6px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <h1>seia-monitor</h1>
+  <p>Feeds generados automáticamente:</p>
+  <ul>
+    <li><a href="./feed.xml">RSS</a></li>
+    <li><a href="./data.json">JSON</a></li>
+  </ul>
+  <p>Repositorio: <a href="https://github.com/${GITHUB_REPOSITORY}">${GITHUB_REPOSITORY}</a></p>
+</body>
+</html>
+HTML
+          fi
+
+          git add feed.xml data.json index.html
           git commit -m "Update feed $(date -u +'%Y-%m-%d %H:%M:%S')" || echo "Nada que commitear"
           git push -f origin gh-pages
